@@ -7,7 +7,9 @@ import {
   ProductContainer,
   ProductDetails,
 } from "../../styles/pages/product";
-import { useRouter } from "next/router";
+import axios from "axios";
+import { useState } from "react";
+import Head from "next/head";
 
 interface ProductProps {
   product: {
@@ -21,17 +23,29 @@ interface ProductProps {
 }
 
 export default function Product({ product }: ProductProps) {
-  const { isFallback } = useRouter();
+  const [isCreatingCheckoutSession, setIsCreatingCheckoutSession] =
+    useState(false);
 
-  if (isFallback) {
-    return <p>Loading...</p>;
-  }
-
-  function handleBuyProduct(){
-    console.log(product.defaultPriceId);
+  async function handleBuyProduct() {
+    try {
+      setIsCreatingCheckoutSession(true);
+      const response = await axios.post("/api/checkout", {
+        priceId: product.defaultPriceId,
+      });
+      const { checkoutUrl } = response.data;
+      window.location.href = checkoutUrl; //Utilizado para redirecionamento de ROTAS externas
+    } catch (err) {
+      // Conectar com uma ferramenta de observavilidade (Datadog / Sentry)
+      setIsCreatingCheckoutSession(false);
+      alert("Falha ao redirecionar ao checkout");
+    }
   }
 
   return (
+    <>
+    <Head>
+      <title>{product.name} | Ignite Shop</title>
+    </Head>
     <ProductContainer>
       <ImageContainer>
         <Image src={product.imageUrl} width={520} height={480} alt="" />
@@ -42,16 +56,19 @@ export default function Product({ product }: ProductProps) {
         <span>{product.price}</span>
 
         <p>{product.description}</p>
-        <button onClick={handleBuyProduct}>Comprar agora</button>
+        <button disabled={isCreatingCheckoutSession} onClick={handleBuyProduct}>
+          Comprar agora
+        </button>
       </ProductDetails>
     </ProductContainer>
+    </>
   );
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
   return {
     paths: [{ params: { id: "prod_N6R42QVOnZMwWT" } }],
-    fallback: true,
+    fallback: "blocking",
   };
 };
 
